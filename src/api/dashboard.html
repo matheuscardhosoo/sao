@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Underworld — Live Agent Dashboard</title>
+  <style>
+    :root {
+      --bg: #0c0e14;
+      --card-bg: #141721;
+      --border: #232738;
+      --accent: #00ffd5;
+      --agent: #00e5ff;
+      --resource: #ffd600;
+      --trail: #bb86fc;
+      --exhausted: #ff3366;
+      --text: #e0e6ed;
+      --dim: #6c7693;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "JetBrains Mono", monospace;
+      padding: 20px;
+      line-height: 1.4;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--border);
+    }
+    h1 {
+      font-size: 1.4rem;
+      letter-spacing: 1px;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-live { background: #004d40; color: var(--accent); border: 1px solid var(--accent); }
+    .badge-disconnected { background: #4d0015; color: var(--exhausted); border: 1px solid var(--exhausted); }
+    .container {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 1024px) {
+      .container { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .panel-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--dim);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    /* Grid */
+    #grid-view {
+      font-family: "JetBrains Mono", "Courier New", monospace;
+      font-size: 1.25rem;
+      line-height: 1.2;
+      background: #08090d;
+      padding: 14px;
+      border-radius: 6px;
+      border: 1px solid #1a1e2b;
+      user-select: none;
+      white-space: pre;
+      display: inline-block;
+    }
+    .tile-empty { color: #2d3345; }
+    .tile-agent { color: var(--agent); font-weight: bold; text-shadow: 0 0 8px rgba(0,229,255,0.7); }
+    .tile-resource { color: var(--resource); font-weight: bold; text-shadow: 0 0 8px rgba(255,214,0,0.6); }
+    .tile-trail { color: var(--trail); }
+    .legend {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: 0.8rem;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    /* Right column */
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .agent-card {
+      background: #0e111a;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .agent-card.exhausted {
+      border-color: rgba(255, 51, 102, 0.4);
+      opacity: 0.7;
+    }
+    .agent-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .agent-name {
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 0.95rem;
+    }
+    .energy-bar-wrap {
+      background: #1e2333;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .energy-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #ff3366, #ffd600 50%, #00ffd5 100%);
+      transition: width 0.3s ease;
+    }
+    .agent-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--dim);
+    }
+    /* Event Log */
+    #event-log {
+      height: 280px;
+      overflow-y: auto;
+      background: #08090d;
+      border: 1px solid #1a1e2b;
+      border-radius: 6px;
+      padding: 10px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 6px;
+    }
+    .log-entry {
+      color: var(--text);
+      border-left: 2px solid var(--border);
+      padding-left: 8px;
+    }
+    .log-chat { border-left-color: var(--accent); color: #70ffdb; }
+    .log-resource { border-left-color: var(--resource); }
+    .log-death { border-left-color: var(--exhausted); color: #ff85a1; }
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    button {
+      background: #1a2030;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: #232b40;
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Underworld <span>// Simulation Dashboard</span></h1>
+    <div id="conn-status" class="badge badge-disconnected">Connecting...</div>
+  </header>
+
+  <div class="container">
+    <!-- Grid Panel -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>2D Simulation Matrix (20x20)</span>
+        <span id="grid-meta">Loading...</span>
+      </div>
+      <div id="grid-view"></div>
+      <div class="legend">
+        <div class="legend-item"><span class="tile-agent">@</span> Agent</div>
+        <div class="legend-item"><span class="tile-resource">!</span> Energy Crystal</div>
+        <div class="legend-item"><span class="tile-trail">+</span> Trail</div>
+        <div class="legend-item"><span class="tile-empty">.</span> Ground</div>
+      </div>
+      <div class="controls">
+        <button onclick="spawnResource()">+ Spawn Resource</button>
+        <button onclick="fetchWorldHTTP()">Manual Refresh</button>
+      </div>
+    </div>
+
+    <!-- Right Column: Agents & Events -->
+    <div class="right-col">
+      <!-- Active Agents Panel -->
+      <div class="panel">
+        <div class="panel-title">
+          <span>Active Entities</span>
+          <span id="agent-count">0 Agents</span>
+        </div>
+        <div id="agents-container" class="agents-grid"></div>
+      </div>
+
+      <!-- Live Event Feed -->
+      <div class="panel">
+        <div class="panel-title">
+          <span>Global Event Stream</span>
+          <span id="event-count">0 events</span>
+        </div>
+        <div id="event-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let socket = null;
+    const gridEl = document.getElementById("grid-view");
+    const agentsEl = document.getElementById("agents-container");
+    const logEl = document.getElementById("event-log");
+    const connEl = document.getElementById("conn-status");
+    const agentCountEl = document.getElementById("agent-count");
+    const eventCountEl = document.getElementById("event-count");
+    const gridMetaEl = document.getElementById("grid-meta");
+
+    function renderWorld(data) {
+      if (!data) return;
+
+      // 1. Render Grid
+      const grid = data.grid || [];
+      let gridHTML = "";
+      for (let y = 0; y < grid.length; y++) {
+        for (let x = 0; x < grid[y].length; x++) {
+          const ch = grid[y][x];
+          let cls = "tile-empty";
+          if (ch === "@") cls = "tile-agent";
+          else if (ch === "!") cls = "tile-resource";
+          else if (ch === "+") cls = "tile-trail";
+          gridHTML += `<span class="${cls}">${ch} </span>`;
+        }
+        gridHTML += "\n";
+      }
+      gridEl.innerHTML = gridHTML;
+      gridMetaEl.innerText = `${grid.length}x${grid[0]?.length || 0}`;
+
+      // 2. Render Agents
+      const details = data.agent_details || {};
+      const agentIds = Object.keys(details);
+      agentCountEl.innerText = `${agentIds.length} Entities`;
+
+      let agentsHTML = "";
+      for (const [aid, a] of Object.entries(details)) {
+        const energyPct = Math.max(0, Math.min(100, (a.energy / (a.max_energy || 100)) * 100));
+        const exhaustedCls = a.is_active ? "" : "exhausted";
+        const statusBadge = a.is_active ? "ACTIVE" : "EXHAUSTED";
+        const badgeColor = a.is_active ? "var(--accent)" : "var(--exhausted)";
+
+        agentsHTML += `
+          <div class="agent-card ${exhaustedCls}">
+            <div class="agent-header">
+              <span class="agent-name">@ ${aid}</span>
+              <span style="font-size:0.7rem; color:${badgeColor}; font-weight:600">${statusBadge}</span>
+            </div>
+            <div>
+              <div class="agent-stats">
+                <span>Energy: ${a.energy} / ${a.max_energy || 100}</span>
+                <span>(${a.x}, ${a.y})</span>
+              </div>
+              <div class="energy-bar-wrap">
+                <div class="energy-bar" style="width: ${energyPct}%"></div>
+              </div>
+            </div>
+            <div class="agent-stats">
+              <span>💎 Crystals: ${a.inventory_count || 0}</span>
+              <span>${a.personality ? a.personality.slice(0, 24) + '...' : ''}</span>
+            </div>
+          </div>
+        `;
+      }
+      agentsEl.innerHTML = agentsHTML || "<div style='color:var(--dim); font-size:0.8rem;'>No agents spawned yet.</div>";
+
+      // 3. Render Event Log
+      const events = data.event_log || [];
+      eventCountEl.innerText = `${events.length} logged`;
+      let logHTML = "";
+      for (let i = events.length - 1; i >= 0; i--) {
+        const e = events[i];
+        let cls = "log-entry";
+        if (e.includes("💬") || e.includes("said:")) cls += " log-chat";
+        else if (e.includes("💎") || e.includes("✨") || e.includes("Resource")) cls += " log-resource";
+        else if (e.includes("💀") || e.includes("exhausted")) cls += " log-death";
+        logHTML += `<div class="${cls}">${e}</div>`;
+      }
+      logEl.innerHTML = logHTML || "<div class='log-entry'>Listening for events...</div>";
+    }
+
+    function connectWS() {
+      const loc = window.location;
+      const wsProto = loc.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${wsProto}//${loc.host}/ws/world`;
+
+      socket = new WebSocket(wsUrl);
+
+      socket.onopen = () => {
+        connEl.className = "badge badge-live";
+        connEl.innerText = "STREAM LIVE";
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          renderWorld(data);
+        } catch (err) {
+          console.error("WS Parse error", err);
+        }
+      };
+
+      socket.onclose = () => {
+        connEl.className = "badge badge-disconnected";
+        connEl.innerText = "OFFLINE (Retrying)";
+        setTimeout(connectWS, 2000);
+      };
+
+      socket.onerror = () => {
+        socket.close();
+      };
+    }
+
+    async function fetchWorldHTTP() {
+      try {
+        const res = await fetch("/world/state");
+        if (res.ok) {
+          const data = await res.json();
+          renderWorld(data);
+        }
+      } catch (e) {
+        console.error("HTTP Fetch error", e);
+      }
+    }
+
+    async function spawnResource() {
+      try {
+        const x = Math.floor(Math.random() * 20);
+        const y = Math.floor(Math.random() * 20);
+        await fetch("/add_resource", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ x, y })
+        });
+      } catch (e) {
+        console.error("Spawn error", e);
+      }
+    }
+
+    connectWS();
+  </script>
+</body>
+</html>

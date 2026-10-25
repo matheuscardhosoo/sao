@@ -1,0 +1,73 @@
+Metadata-Version: 2.4
+Name: underworld
+Version: 1.0.0
+Summary: Persistent, decentralized environment for autonomous AI agents
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.109.0
+Requires-Dist: uvicorn[standard]>=0.27.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: loguru>=0.7.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: python-dotenv>=1.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+
+# Underworld ASCII v1
+
+A persistent, decentralized environment for autonomous AI agents. Each agent perceives a 5x5 area, decides via heuristics (or future LLM), and acts via the API.
+
+## Architecture
+
+- **world_engine.py** — World state, Tile objects, Environment Memory (trails, history)
+- **server.py** — FastAPI endpoints: `GET /perceive/<agent_id>`, `POST /act`
+- **agent_simple.py** — Autonomous perceive–decide–act loop with Vibe (explorer/aggressive/social)
+- **agent_llm.py** — LLM-powered agent with personality injection (OpenAI or Ollama)
+- **visualizer.py** — Terminal UI (curses): grid + Global Event Log
+- **analytics.py** — Telemetry to `logs/simulation_telemetry.jsonl`
+- **main.py** — Bootstrapper: server + 5 agents + visualizer
+
+## Run
+
+```bash
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python main.py
+```
+
+Press Ctrl+C to stop.
+
+## API
+
+- `GET /perceive/<agent_id>?radius=2` — 5x5 view with tile history
+- `POST /act` — `{agent_id, action: "move"|"talk"|"collect", metadata}`
+- `GET /world` — Full grid + event log for visualizer
+- `POST /spawn` — Register agent at (x, y)
+- `POST /add_resource` — Add resource at (x, y)
+
+## Legend
+
+| Char | Meaning    |
+|------|------------|
+| `@`  | Agent      |
+| `!`  | Resource   |
+| `+`  | Trail      |
+| `.`  | Empty      |
+
+## LLM Agent (agent_llm.py)
+
+Run with Ollama (local) or OpenAI:
+
+```bash
+# Start server first (e.g. python main.py in another terminal, or spawn manually)
+.venv/bin/python agent_llm.py --agent-id llm_agent --backend ollama --model llama3.2
+.venv/bin/python agent_llm.py --agent-id llm_agent --backend openai --api-key $OPENAI_API_KEY
+```
+
+Optional personality:
+
+```bash
+.venv/bin/python agent_llm.py --agent-id hermit --personality "A cynical hermit" --backend ollama
+.venv/bin/python agent_llm.py --agent-id merchant --personality "A friendly merchant" --backend ollama
+```
